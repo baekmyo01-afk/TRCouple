@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테일즈런너 커플 계산기</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background: #f4f6f9;
+  overflow-x: hidden;
+}
+
+/* ====== NAV (Flexbox) ====== */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  background: #1e1e2f;
+  color: white;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  gap: 20px;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+  transition: 0.3s;
+}
+
+nav a:hover {
+  opacity: 0.7;
+}
+
+/* ====== MAIN LAYOUT (Grid) */
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* Content (cards grid) */
+.content {
+  display: grid;
+  /* Desktop: 2 columns; use 3 rows so card-2 can span all three rows
+    and match combined height of start-level + couple-candy + experience */
+  grid-template-columns: 1fr 420px;
+  grid-auto-rows: auto;
+  gap: 20px;
+}
+
+/* Desktop placements:
+  Row1: start-level (col1), card-2 (col2 spans rows 1-3)
+  Row2: couple-candy (col1)
+  Row3: experience-card (col1)
+*/
+.content > .card.start-level { grid-column: 1; grid-row: 1; }
+.content > .card.couple-candy { grid-column: 1; grid-row: 2; }
+.content > .card.experience-card { grid-column: 1; grid-row: 3; }
+.content > .card.card-2 { grid-column: 2; grid-row: 1 / span 3; }
+
+/* ensure result card fits within fixed column and doesn't overflow */
+.content > .card.card-2 { max-width: 420px; box-sizing: border-box; }
+
+/* ensure each card sizes to content and sits at the top of its cell */
+.content > .card {
+  height: auto;
+  align-self: start;
+}
+
+.card {
+  min-height: 160px;
+  width: 100%;
+}
+
+/* Card (Flexbox 내부정렬) */
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: 0.3s;
+  position: relative;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.card h3 {
+  margin: 0 0 12px 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-align: center;
+}
+
+.card .card-title-row { position: relative; width: 100%; display:flex; align-items:center; justify-content:center; }
+.card .card-title-row h3 { margin: 0; }
+.help-btn {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.help-tooltip {
+  display: none;
+  position: absolute;
+  top: 42px;
+  right: 8px;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.08);
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  font-size: 13px;
+  color: #222;
+  z-index: 40;
+}
+/* multiline: respect newlines and wrap within max width */
+.help-tooltip.multiline { white-space: pre-line; max-width: 260px; }
+/* singleline: keep on one line and allow tooltip to expand horizontally (but cap at viewport) */
+.help-tooltip.singleline { white-space: nowrap; max-width: calc(100vw - 40px); }
+.help-tooltip .no-wrap { white-space: nowrap; display:inline-block; }
+.help-tooltip.allow-expand { max-width: calc(100vw - 40px); }
+/* visible state toggles (hover/focus or JS toggle) */
+.card .card-title-row:hover .help-tooltip,
+.card .card-title-row .help-btn:focus + .help-tooltip,
+.help-tooltip.visible {
+  display: block;
+}
+
+/* Ensure the 레벨 card title sits at the top and aligns like other cards */
+.card.start-level { align-items: stretch; justify-content: flex-start; }
+.card.start-level > div { align-self: flex-start; width: 100%; }
+.card.start-level h3 { text-align: center; margin-bottom: 12px; }
+
+.card button {
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.card button:hover {
+  background: #4338ca;
+}
+
+/* Couple Candy 박스 */
+.couple-candy {
+  background: linear-gradient(180deg,#fff6f9 0%, #fff 100%);
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center; /* vertical center items inside the card */
+}
+
+/* experience card background: soft light-brown gradient similar tone to couple-candy */
+.card.experience-card {
+  background: linear-gradient(180deg, #f6efe6 0%, #fff9f2 100%);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.candy-checkbox {
+  width: 20px;
+  height: 20px;
+}
+
+.candy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.candy-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* allow label to wrap when space is tight so controls stay visible */
+  flex-wrap: wrap;
+}
+
+.candy-item img {
+  width: 72px;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+  flex: 0 0 auto;
+}
+
+.candy-item .label {
+  font-size: 16px;
+  color: #333;
+  /* keep label on one line and allow truncation if needed */
+    /* allow wrapping so buttons/input won't overflow card */
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    min-width: 0; /* allow proper shrinking inside flex */
+  /* allow label to take remaining space but not force wrapping */
+  flex: 1 1 auto;
+}
+
+.quantity {
+  flex: 0 0 auto;
+}
+
+/* 경험치 카드 image / inputs */
+.exp-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+  /* center this row vertically inside the card */
+  margin-top: auto;
+  margin-bottom: auto;
+  justify-content: center;
+}
+.couple-img {
+  /* make image width equal to card's inner width minus 10px; limit height so card height stays consistent */
+  width: calc(100% - 10px);
+  max-width: calc(100% - 10px);
+  height: auto;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
+}
+.user-inputs {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+.user-inputs label { font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.user-exp { width: 80px; padding: 6px 8px; border-radius:6px; border:1px solid #ddd; text-align:center; }
+
+/* quantity controls */
+.quantity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.quantity input.num-input {
+  width: 90px;
+  min-width: 72px;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-align: center;
+}
+.qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  cursor: pointer;
+  user-select: none;
+}
+.qty-btn:active {
+  transform: translateY(1px);
+}
+
+/* start-level (레벨) layout inside card */
+.level-row { display:flex; flex-direction:column; gap:12px; align-items:stretch; width:100%; padding-top:16px; }
+.level-item { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:100%; }
+.level-label { font-weight:600; width:140px; text-align:right; margin-right:12px; }
+.start-level-input, .target-level-input { width:80px; padding:6px 8px; border-radius:6px; border:1px solid #ddd; text-align:center; }
+.level-controls .qty-btn { width:24px; height:24px; }
+
+/* time inputs (일/시/분) */
+.time-group { display:flex; gap:8px; align-items:center; }
+.time-item { display:flex; flex-direction:row; align-items:center; gap:6px; }
+.time-item .time-label { font-size:12px; color:#666; margin-left:4px; }
+.time-input { width:56px; padding:6px 8px; border-radius:6px; border:1px solid #ddd; text-align:center; }
+.quantity { position: relative; }
+.quantity .time-group { margin-left:12px; margin-top:0; align-items:center; }
+.start-level .start-level-input { margin-top: 0; }
+
+/* Ensure all controls in the 레벨 card line up vertically centered */
+.card.start-level .level-item,
+.card.start-level .level-item > .level-label,
+.card.start-level .level-item > .quantity,
+.card.start-level .time-group,
+.card.start-level .time-item { align-items: center; }
+/* align standalone time-group under the start-level label area (fallback) */
+.level-row .time-group { margin-left: 0; margin-top: 8px; justify-content:center; width:100%; }
+/* ensure .quantity inside start-level aligns controls and time inputs horizontally */
+.start-level .quantity { display:flex; align-items:center; gap:12px; }
+
+/* image label bold */
+.candy-item .label {
+  font-weight: 700;
+}
+
+/* result card styles (card-2) */
+.card.card-2 .result-row { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; margin-top:12px; }
+.card.card-2 .result-label { font-weight:600; margin-right:8px; }
+.card.card-2 .result-value { display:inline-block; min-width:100px; padding:6px 8px; border:1px solid #ddd; border-radius:6px; text-align:center; background:#f8fafb; }
+
+/* needed exp in result card */
+.card.card-2 .needed-row { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; margin-top:12px; }
+.card.card-2 .needed-label { font-weight:600; margin-right:8px; }
+.card.card-2 .needed-value { display:inline-block; min-width:140px; padding:6px 8px; border:1px solid #ddd; border-radius:6px; text-align:center; background:#f8fafb; }
+
+/* runs row in result card */
+.card.card-2 .runs-row { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; margin-top:8px; }
+.card.card-2 .runs-label { font-weight:600; margin-right:8px; }
+.card.card-2 .runs-value { display:inline-block; min-width:140px; padding:6px 8px; border:1px solid #ddd; border-radius:6px; text-align:center; background:#f8fafb; }
+
+/* center candy items inside result card */
+.card.card-2 .candy-list { display:flex; flex-direction:column; align-items:center; gap:12px; padding:0; }
+.card.card-2 .candy-item { width:100%; display:flex; align-items:center; justify-content:center; gap:12px; }
+.card.card-2 .candy-item img { margin:0; display:block; }
+.card.card-2 .candy-item .label { flex:0 0 auto; }
+.card.card-2 .quantity { flex:0 0 auto; }
+
+/* read-only quantity style for 결과 card */
+.card.card-2 .qty-value {
+  display:inline-block;
+  min-width:80px;
+  padding:6px 8px;
+  border:1px solid #ddd;
+  border-radius:6px;
+  text-align:center;
+  background:#f8fafb;
+}
+
+/* needed time row */
+.card.card-2 .needed-time-row { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; margin-top:10px; }
+.card.card-2 .needed-time-label { font-weight:600; margin-right:8px; }
+.card.card-2 .needed-time-values { display:flex; gap:8px; align-items:center; }
+.card.card-2 .time-value { display:inline-block; min-width:46px; padding:6px 8px; border:1px solid #ddd; border-radius:6px; text-align:center; background:#f8fafb; }
+.card.card-2 .time-unit { color:#666; font-size:14px; }
+.card.card-2 .needed-time-row { margin-bottom: 2em; }
+
+.card.card-2 .needed-candy-title { width:100%; text-align:center; font-weight:700; margin-top:20px; margin-bottom:6px; }
+
+/* Card titles: unified size handled by .card h3 above */
+
+/* ====== Responsive ====== */
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+  .candy-images img {
+    width: 72px;
+  }
+  /* allow smaller cards on narrow screens */
+  .content {
+    grid-template-columns: 1fr;
+  }
+  /* ensure experience card returns to normal flow on mobile */
+  .content > .card.experience-card {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  /* reset card2 placement on mobile and center it */
+  .content > .card.card-2 {
+    grid-column: auto;
+    grid-row: auto;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+  .content > .card.card-3 {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  /* reduce control sizes on narrow screens to avoid overflow */
+  .quantity input.num-input { width: 64px; padding: 4px 6px; }
+  .qty-btn { width: 22px; height: 22px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <h2>Couple</h2>
+  <ul>
+    <li><a href="#">커플 캔디 계산기</a></li>
+    <li><a href="#">더치페이 계산기</a></li>
+  </ul>
+</nav>
+
+  <div class="container">
+
+  <div class="content">
+    <div class="card start-level">
+        <div class="card-title-row">
+          <h3>레벨</h3>
+          <button class="help-btn" aria-label="레벨 도움말">?</button>
+          <div class="help-tooltip">시작 레벨과 목표 레벨을 적는 부분 입니다.<br><br><span class="no-wrap">테일즈 북에 다음 레벨까지 남은 일수를 적어주세요.</span></div>
+        </div>
+      <div class="level-row">
+            <div class="level-item">
+              <div class="level-label">시작 커플 레벨</div>
+              <div class="quantity">
+                <input type="text" class="start-level-input num-input" value="1" min="1" aria-label="시작 커플 레벨">
+                <div class="level-controls" style="display:flex;flex-direction:row;gap:6px;margin-left:6px;align-items:center;">
+                  <button class="qty-btn qty-up" aria-label="증가">▲</button>
+                  <button class="qty-btn qty-down" aria-label="감소">▼</button>
+                </div>
+                <div class="time-group">
+                  <div class="time-item">
+                    <input type="text" class="time-input num-input" value="0" min="0" aria-label="시작 일">
+                    <span class="time-label">일</span>
+                  </div>
+                  <div class="time-item">
+                    <input type="text" class="time-input num-input" value="0" min="0" aria-label="시작 시">
+                    <span class="time-label">시</span>
+                  </div>
+                  <div class="time-item">
+                    <input type="text" class="time-input num-input" value="0" min="0" aria-label="시작 분">
+                    <span class="time-label">분</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="level-item">
+              <div class="level-label">목표 커플 레벨</div>
+              <div class="quantity">
+                <input type="text" class="target-level-input num-input" value="10" min="1" aria-label="목표 커플 레벨">
+                <div class="level-controls" style="display:flex;flex-direction:row;gap:6px;margin-left:6px;align-items:center;">
+                  <button class="qty-btn qty-up" aria-label="증가">▲</button>
+                  <button class="qty-btn qty-down" aria-label="감소">▼</button>
+                </div>
+              </div>
+            </div>
+      </div>
+    </div>
+    <div class="card couple-candy">
+      <div class="card-title-row">
+        <h3>커플 캔디</h3>
+        <button class="help-btn" aria-label="커플 캔디 도움말">?</button>
+        <div class="help-tooltip">각 캔디의 보유 수량을 적는 부분 입니다.</div>
+      </div>
+      <div class="candy-list">
+        <div class="candy-item">
+          <img src="img/Sweet.png" alt="Sweet">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">달콤 커플 캔디</div>
+            <div class="quantity" data-name="Sweet">
+              <input type="text" class="qty-input num-input" value="0" min="0" aria-label="달콤 수량">
+              <div>
+                <button class="qty-btn qty-up" aria-label="증가">▲</button>
+                <button class="qty-btn qty-down" aria-label="감소">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="candy-item">
+          <img src="img/Fresh.png" alt="Fresh">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">상큼 커플 캔디</div>
+            <div class="quantity" data-name="Fresh">
+              <input type="text" class="qty-input num-input" value="0" min="0" aria-label="상큼 수량">
+              <div>
+                <button class="qty-btn qty-up" aria-label="증가">▲</button>
+                <button class="qty-btn qty-down" aria-label="감소">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="candy-item">
+          <img src="img/Sour.png" alt="Sour">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">새콤 커플 캔디</div>
+            <div class="quantity" data-name="Sour">
+              <input type="text" class="qty-input num-input" value="0" min="0" aria-label="새콤 수량">
+              <div>
+                <button class="qty-btn qty-up" aria-label="증가">▲</button>
+                <button class="qty-btn qty-down" aria-label="감소">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="candy-item">
+          <img src="img/Plain.png" alt="Plain">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">담백 커플 캔디</div>
+            <div class="quantity" data-name="Plain">
+              <input type="text" class="qty-input num-input" value="0" min="0" aria-label="담백 수량">
+              <div>
+                <button class="qty-btn qty-up" aria-label="증가">▲</button>
+                <button class="qty-btn qty-down" aria-label="감소">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card experience-card">
+      <div class="card-title-row">
+        <h3>경험치</h3>
+        <button class="help-btn" aria-label="경험치 도움말">?</button>
+        <div class="help-tooltip">획득 경험치를 적는 부분입니다. <br><br><span class="no-wrap">같이 플레이를 진행 하였을 때, 한판을 기준으로 각 유저가 얻는 경험치를 적어주세요.</span></div>
+      </div>
+      <div class="exp-area">
+        <img src="img/Couple.png" alt="Couple" class="couple-img">
+        <div class="user-inputs">
+          <label>유저 1 <input type="text" class="user-exp num-input" value="0" min="0" aria-label="유저1 경험치"></label>
+          <label>유저 2 <input type="text" class="user-exp num-input" value="0" min="0" aria-label="유저2 경험치"></label>
+        </div>
+      </div>
+      
+    </div>
+
+    <div class="card card-2">
+      <div class="card-title-row">
+        <h3>결과</h3>
+        <button class="help-btn" aria-label="결과 도움말">?</button>
+        <div class="help-tooltip">계산된 달성 레벨, 필요 경험치, 필요한 시간과 달리기 판수, 추천 캔디 배분이 표시됩니다. <br><br><span class="no-wrap">경험치를 적지 않을 경우 필요 총 커플 캔디 갯수가 출력되며, 경험치를 적은 경우에는 달리기 판수를 기준으로 계산됩니다.</span></div>
+      </div>
+      <div class="result-row">
+        <div class="result-label">달성 커플 레벨</div>
+        <span class="result-value">1</span>
+      </div>
+      <div class="needed-row">
+        <div class="needed-label">필요 커플 경험치</div>
+        <span class="needed-value">0</span>
+      </div>
+      <div class="needed-time-row">
+        <div class="needed-time-label">필요 커플 일시</div>
+        <div class="needed-time-values">
+          <span class="time-value needed-time-days">0</span>
+          <span class="time-unit">일</span>
+          <span class="time-value needed-time-hours">0</span>
+          <span class="time-unit">시</span>
+          <span class="time-value needed-time-mins">0</span>
+          <span class="time-unit">분</span>
+        </div>
+      </div>
+
+      <div class="runs-row">
+        <div class="runs-label">필요 달리기 판수</div>
+        <span class="runs-value">0</span>
+      </div>
+
+      <div class="needed-candy-title">필요 커플 캔디 갯수</div>
+
+      <div class="candy-list" style="margin-top:12px; width:100%;">
+        <div class="candy-item">
+          <img src="img/Sweet.png" alt="Sweet">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">달콤 커플 캔디</div>
+            <div class="quantity" data-name="Sweet">
+              <span class="qty-value">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="candy-item">
+          <img src="img/Fresh.png" alt="Fresh">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">상큼 커플 캔디</div>
+            <div class="quantity" data-name="Fresh">
+              <span class="qty-value">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="candy-item">
+          <img src="img/Sour.png" alt="Sour">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">새콤 커플 캔디</div>
+            <div class="quantity" data-name="Sour">
+              <span class="qty-value">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="candy-item">
+          <img src="img/Plain.png" alt="Plain">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="label">담백 커플 캔디</div>
+            <div class="quantity" data-name="Plain">
+              <span class="qty-value">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+  </div>
+</div>
+
+  <script>
+  // Level and Candy mappings (from CSV files) embedded here for JS management
+  const levelMap = {
+    1:0,2:4800,3:12000,4:24000,5:48000,6:72000,7:120000,8:144000,9:168000,10:240000,
+    11:360000,12:480000,13:600000,14:720000,15:864000,16:960000,17:1080000,18:1200000,19:1320000,20:1440000,
+    21:1560000,22:1680000,23:1800000,24:1920000,25:2040000
+  };
+
+  const candyMap = {
+    Sweet:72000,
+    Presh:24000,
+    Sour:7200,
+    Plain:2400
+  };
+
+  function getCandyExpByDataName(name){
+    if (!name) return 0;
+    // UI uses 'Fresh' but CSV key is 'Presh'
+    if (name === 'Fresh') name = 'Presh';
+    return candyMap[name] || 0;
+  }
+
+  // parse a number from a formatted string (commas allowed)
+  function parseNumberFromString(s){
+    if (s === null || s === undefined) return 0;
+    const cleaned = String(s).replace(/[^0-9-]/g, '');
+    const n = parseInt(cleaned, 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function formatInputValue(el, val){
+    if (!el) return;
+    if (val === null || val === undefined || val === '') { el.value = ''; return; }
+    el.value = Number(val).toLocaleString();
+  }
+
+  function updateResults(){
+    const startLevelInput = document.querySelector('.start-level-input');
+    let startLevel = parseNumberFromString(startLevelInput?.value || '1') || 1;
+    // clamp start level between 1 and 25
+    if (startLevel <= 0) startLevel = 1;
+    if (startLevel > 25) startLevel = 25;
+    if (startLevelInput) formatInputValue(startLevelInput, startLevel);
+    const levelExp = levelMap[startLevel] ?? 0;
+    window._levelExp = levelExp; // expose for debugging
+
+    // 목표 레벨 값
+    const targetLevelInput = document.querySelector('.target-level-input');
+    let targetLevel = parseNumberFromString(targetLevelInput?.value || startLevel) || startLevel;
+    // clamp target level between 1 and 25
+    if (targetLevel <= 0) targetLevel = 1;
+    if (targetLevel > 25) targetLevel = 25;
+    if (targetLevelInput) formatInputValue(targetLevelInput, targetLevel);
+
+    // 캔디 계산: interactive 캔디 리스트만 처리 (.card.couple-candy)
+    const interactiveItems = document.querySelectorAll('.card.couple-candy .candy-list .candy-item');
+    let totalCandyExp = 0;
+    interactiveItems.forEach(item => {
+      const qtyWrapper = item.querySelector('.quantity');
+      if (!qtyWrapper) return;
+      const key = qtyWrapper.dataset.name;
+      const input = qtyWrapper.querySelector('.qty-input');
+      const qty = input ? (parseNumberFromString(input.value || '0') || 0) : 0;
+      const per = getCandyExpByDataName(key);
+      totalCandyExp += per * qty;
+
+      // format input and sync to 결과 카드
+      if (input) formatInputValue(input, qty);
+      // 결과 카드에 qty 동기화
+      const resQty = document.querySelector('.card.card-2 .candy-list .quantity[data-name="' + key + '"] .qty-value');
+      if (resQty) resQty.textContent = qty;
+    });
+
+    // 달성 레벨 계산: levelMap 값을 '레벨별 필요 EXP'로 해석
+    // 총 필요 EXP = sum(levelMap[l]) for l = startLevel+1..targetLevel
+    let totalRequired = 0;
+    for (let l = startLevel + 1; l <= targetLevel; l++){
+      totalRequired += (levelMap[l] ?? 0);
+    }
+
+    // 시작 시간(일/시/분)을 EXP로 환산하여 시작 레벨 EXP 보정
+    // 선택한 time inputs는 .card.start-level 내부에 있음 (순서: 일, 시, 분)
+    const timeInputs = document.querySelectorAll('.card.start-level .time-group .time-item .time-input');
+    let days = 0, hours = 0, minutes = 0;
+    if (timeInputs && timeInputs.length >= 3) {
+      days = parseNumberFromString(timeInputs[0].value || '0') || 0;
+      hours = parseNumberFromString(timeInputs[1].value || '0') || 0;
+      minutes = parseNumberFromString(timeInputs[2].value || '0') || 0;
+      // format time inputs
+      formatInputValue(timeInputs[0], days);
+      formatInputValue(timeInputs[1], hours);
+      formatInputValue(timeInputs[2], minutes);
+    }
+    const timeExp = Math.round(minutes * 1.6 + hours * 100 + days * 2400);
+    window._timeExp = timeExp;
+
+    // 총 사용 가능한 EXP = 캔디 EXP + 시간 EXP
+    const totalResource = totalCandyExp + timeExp;
+
+    // 남은 자원으로 다음 레벨별 필요량(차이)을 순차적으로 채워 달성 레벨 결정
+    let rem = totalResource;
+    let achieved = startLevel;
+    while (achieved < targetLevel){
+      const next = achieved + 1;
+      let need = (levelMap[next] ?? 0);
+      need = Math.max(0, need);
+      if (rem >= need){
+        rem -= need;
+        achieved = next;
+      } else {
+        break;
+      }
+    }
+
+    // 표시: 달성 레벨
+    const resultLevelEl = document.querySelector('.card.card-2 .result-value');
+    if (resultLevelEl) resultLevelEl.textContent = achieved;
+
+    // 필요 커플 경험치 = max(0, totalRequired - totalResource)
+    let needed = totalRequired - totalResource;
+    if (needed < 0) needed = 0;
+    const neededEl = document.querySelector('.card.card-2 .needed-value');
+    if (neededEl) neededEl.textContent = needed.toLocaleString();
+
+    // 필요한 EXP를 일/시/분 단위로 환산해서 결과 카드에 표시
+    // 환산 기준: 1일=2400, 1시=100, 1분=1.6
+    let remExp = needed;
+    const ndays = Math.floor(remExp / 2400);
+    remExp -= ndays * 2400;
+    const nhours = Math.floor(remExp / 100);
+    remExp -= nhours * 100;
+    // 분은 소수점 올림으로 충분한 분으로 표시
+    const nmins = Math.ceil(remExp / 1.6);
+    const daysEl = document.querySelector('.card.card-2 .needed-time-days');
+    const hoursEl = document.querySelector('.card.card-2 .needed-time-hours');
+    const minsEl = document.querySelector('.card.card-2 .needed-time-mins');
+    if (daysEl) daysEl.textContent = ndays;
+    if (hoursEl) hoursEl.textContent = nhours;
+    if (minsEl) minsEl.textContent = nmins;
+
+    window._totalCandyExp = totalCandyExp;
+    window._neededExp = needed;
+
+    // 필요 달리기 판수 계산 (규칙1: 한 판의 초과분은 다음 레벨로 이월되지 않음)
+    // 런 XP는 경험치 카드의 유저1 + 유저2 값 합으로 정의
+    const userExpInputs = document.querySelectorAll('.user-exp');
+    let xpPerRun = 0;
+    userExpInputs.forEach(i => { const v = parseNumberFromString(i.value || '0') || 0; xpPerRun += v; formatInputValue(i, v); });
+
+    let runsNeeded = 0;
+    if (xpPerRun <= 0){
+      runsNeeded = '—';
+    } else {
+      let rem = totalResource; // 먼저 캔디/시간으로 채움
+      for (let lvl = startLevel + 1; lvl <= targetLevel; lvl++){
+        const need = (levelMap[lvl] ?? 0);
+        if (rem >= need){
+          rem -= need;
+          continue; // 이 레벨은 캔디/시간으로 채워짐
+        }
+        // 캔디/시간으로 일부 채우고 남은 분
+        const remainingForLevel = need - rem;
+        // 이후 캔디/시간은 모두 소모됨
+        rem = 0;
+        // 각 레벨은 독립적으로 판 수를 계산(초과분은 버려짐)
+        const needRuns = Math.ceil(remainingForLevel / xpPerRun);
+        runsNeeded += needRuns;
+      }
+    }
+    const runsEl = document.querySelector('.card.card-2 .runs-value');
+    if (runsEl) runsEl.textContent = (typeof runsNeeded === 'number') ? runsNeeded : runsNeeded;
+    window._runsNeeded = runsNeeded;
+
+    // runsNeeded가 0이거나 비어있을 때(또는 xpPerRun === 0 같은 경우)
+    // 필요한 EXP(needed)를 큰 캔디부터 나누어 각 캔디 수량을 결과 카드에 표시
+    if (runsNeeded === 0 || runsNeeded === '—'){
+      let remaining = needed;
+      const order = ['Sweet','Fresh','Sour','Plain'];
+      const alloc = { Sweet:0, Fresh:0, Sour:0, Plain:0 };
+      for (let i=0;i<order.length;i++){
+        const name = order[i];
+        const expPer = getCandyExpByDataName(name);
+        if (i < order.length - 1){
+          const cnt = Math.floor(remaining / expPer);
+          alloc[name] = cnt;
+          remaining -= cnt * expPer;
+        } else {
+          // 마지막(Plain)은 남는 값이 있으면 +1
+          const cnt = Math.floor(remaining / expPer);
+          alloc[name] = cnt + (remaining % expPer > 0 ? 1 : 0);
+          remaining = 0;
+        }
+      }
+
+      // 결과 카드에 배치
+      Object.keys(alloc).forEach(k => {
+        const el = document.querySelector('.card.card-2 .candy-list .quantity[data-name="' + (k === 'Fresh' ? 'Fresh' : k) + '"] .qty-value');
+        if (el) el.textContent = alloc[k];
+      });
+    }
+  }
+
+  // 버튼(▲/▼) 동작: 수량을 변경하고 결과 업데이트
+  document.addEventListener('click', function(e){
+    if (e.target.classList.contains('qty-up') || e.target.classList.contains('qty-down')){
+      const isUp = e.target.classList.contains('qty-up');
+      const wrapper = e.target.closest('.quantity');
+      if (!wrapper) return;
+      // 모든 숫자 입력을 대상으로 선택 (start/target/candy)
+      const input = wrapper.querySelector('input.num-input');
+      if (!input) return;
+      let val = parseNumberFromString(input.value || '0');
+      if (isNaN(val)) val = 0;
+      if (isUp) val += 1; else val = Math.max(0, val - 1);
+      input.value = val.toLocaleString();
+      // trigger both input and change so listeners respond
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      updateResults();
+    }
+  });
+
+  // 입력 변화 감지 (qty, start, target, time 모두 반영)
+  document.addEventListener('input', function(e){
+    if (e.target.matches('.qty-input, .start-level-input, .target-level-input, .time-input, .user-exp')){
+      updateResults();
+    }
+  });
+
+  // 초기화
+  document.addEventListener('DOMContentLoaded', function(){
+    updateResults();
+
+    // 툴팁: 내용에 줄바꿈(<br> 또는 실제 개행)이 있으면 multiline 처리, 없으면 singleline 처리
+    document.querySelectorAll('.help-tooltip').forEach(tip => {
+      const html = tip.innerHTML || '';
+      const text = tip.textContent || '';
+      if (html.match(/<br\s*\/?/i) || text.indexOf('\n') !== -1) {
+        tip.classList.add('multiline');
+      } else {
+        tip.classList.add('singleline');
+      }
+      // if the tooltip explicitly contains a .no-wrap element, prefer singleline and allow expansion
+      if (tip.querySelector('.no-wrap')){
+        tip.classList.remove('multiline');
+        tip.classList.add('singleline');
+        tip.classList.add('allow-expand');
+      }
+    });
+
+    // 모바일/터치에서 툴팁을 클릭으로 토글할 수 있게 함
+    document.querySelectorAll('.help-btn').forEach(btn => {
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        const tip = btn.nextElementSibling;
+        if (!tip) return;
+        tip.classList.toggle('visible');
+      });
+    });
+
+    // 외부 클릭 시 열려있는 툴팁 닫기
+    document.addEventListener('click', function(){
+      document.querySelectorAll('.help-tooltip.visible').forEach(t => t.classList.remove('visible'));
+    });
+  });
+  </script>
+
+</body>
+</html>
